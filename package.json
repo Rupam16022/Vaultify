@@ -16,6 +16,7 @@
     "db:migrate": "npm run db:migrate --workspace=server"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "puppeteer-core": "^25.17.0"
   }
 }
