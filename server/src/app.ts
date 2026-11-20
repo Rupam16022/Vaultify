@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { pool } from './db/pool';
 import { authRouter } from './routes/auth';
+import { twoFactorRouter } from './routes/twoFactor';
 import { vaultRouter } from './routes/vault';
 
 export const app = express();
@@ -86,6 +87,7 @@ app.get('/api/health', async (_req: Request, res: Response) => {
 });
 
 // 5. API Endpoints
+app.use('/api/auth/2fa', twoFactorRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/vault', vaultRouter);
 
