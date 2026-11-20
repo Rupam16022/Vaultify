@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiToken } from '../lib/api';
-import { X, ShieldCheck, Smartphone, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, ShieldCheck, Smartphone, RefreshCw, AlertCircle, CheckCircle2, Copy, Check, Key } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +14,8 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [secret, setSecret] = useState<string | null>(null);
   const [verifyCode, setVerifyCode] = useState('');
   const [disableCode, setDisableCode] = useState('');
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [copiedCodes, setCopiedCodes] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -38,6 +40,7 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       setLoading(true);
       setErrorMessage(null);
+      setBackupCodes([]);
       const res = await fetch('/api/auth/2fa/setup', {
         method: 'POST',
         headers: { Authorization: `Bearer ${getApiToken()}` },
@@ -64,7 +67,7 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getApiToken()}`,
         },
-        body: JSON.stringify({ code: verifyCode }),
+        body: JSON.stringify({ code: verifyCode.trim(), token: verifyCode.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid code');
@@ -72,6 +75,9 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setQrCode(null);
       setSecret(null);
       setVerifyCode('');
+      if (data.backupCodes && Array.isArray(data.backupCodes)) {
+        setBackupCodes(data.backupCodes);
+      }
       setSuccessMessage('Two-Factor Authentication is now active on your account!');
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Verification failed');
@@ -91,17 +97,28 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getApiToken()}`,
         },
-        body: JSON.stringify({ code: disableCode }),
+        body: JSON.stringify({ code: disableCode.trim(), token: disableCode.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to disable');
       setIsEnabled(false);
       setDisableCode('');
+      setBackupCodes([]);
       setSuccessMessage('Two-Factor Authentication has been disabled.');
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Disable failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyAllBackupCodes = async () => {
+    try {
+      await navigator.clipboard.writeText(backupCodes.join('\n'));
+      setCopiedCodes(true);
+      setTimeout(() => setCopiedCodes(false), 3000);
+    } catch {
+      // Ignored
     }
   };
 
@@ -117,7 +134,7 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-      <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', width: '100%', maxWidth: '480px', padding: '1.75rem', color: '#f9fafb', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)' }}>
+      <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', width: '100%', maxWidth: '500px', padding: '1.75rem', color: '#f9fafb', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
         
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
@@ -151,9 +168,37 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </span>
           </div>
           <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
-            TOTP secret is stored encrypted at rest using AES-256-GCM.
+            TOTP secret is stored encrypted at rest using AES-256-GCM. ±60s clock drift tolerance.
           </p>
         </div>
+
+        {/* Newly Generated Backup Codes Notice */}
+        {backupCodes.length > 0 && (
+          <div style={{ background: '#0f172a', border: '1px solid #3b82f6', borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Key size={15} /> One-Time Backup Recovery Codes
+              </span>
+              <button
+                type="button"
+                onClick={copyAllBackupCodes}
+                style={{ background: '#1e3a8a', border: 'none', color: '#93c5fd', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+              >
+                {copiedCodes ? <Check size={13} /> : <Copy size={13} />} {copiedCodes ? 'Copied' : 'Copy All'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '0 0 0.75rem' }}>
+              Save these one-time recovery codes in a secure location. You can use any of them if you lose access to your authenticator app.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', fontFamily: 'monospace', fontSize: '0.85rem', color: '#38bdf8' }}>
+              {backupCodes.map((c, i) => (
+                <div key={i} style={{ background: '#1e293b', padding: '0.35rem 0.5rem', borderRadius: '4px', textAlign: 'center' }}>
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* If Not Enabled: Setup Flow */}
         {!isEnabled && !qrCode && (
@@ -230,22 +275,22 @@ export const TwoFactorModal: React.FC<Props> = ({ isOpen, onClose }) => {
         {isEnabled && (
           <form onSubmit={handleDisable}>
             <p style={{ fontSize: '0.85rem', color: '#d1d5db', lineHeight: 1.5, marginBottom: '1rem' }}>
-              To turn off two-factor authentication, enter the current 6-digit code from your authenticator:
+              To turn off two-factor authentication, enter a current 6-digit TOTP code or an 8-character backup code:
             </p>
             <div style={{ marginBottom: '1rem' }}>
               <input
                 type="text"
                 required
-                maxLength={6}
-                placeholder="000000"
+                maxLength={12}
+                placeholder="000000 or Backup Code"
                 value={disableCode}
-                onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
-                style={{ width: '100%', padding: '0.65rem', textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.3em', background: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff', boxSizing: 'border-box' }}
+                onChange={(e) => setDisableCode(e.target.value.toUpperCase())}
+                style={{ width: '100%', padding: '0.65rem', textAlign: 'center', fontSize: '1.15rem', letterSpacing: '0.2em', background: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff', boxSizing: 'border-box' }}
               />
             </div>
             <button
               type="submit"
-              disabled={loading || disableCode.length !== 6}
+              disabled={loading || disableCode.trim().length < 6}
               style={{ width: '100%', padding: '0.65rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', cursor: loading ? 'not-allowed' : 'pointer' }}
             >
               {loading ? 'Disabling...' : 'Disable 2FA'}

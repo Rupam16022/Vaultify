@@ -121,7 +121,7 @@ export const AuthScreen: React.FC = () => {
 
     try {
       setIsLoading(true);
-      setStatusMessage('Verifying TOTP code...');
+      setStatusMessage('Verifying 2FA authentication...');
 
       const response = await fetch('/api/auth/2fa/verify', {
         method: 'POST',
@@ -129,7 +129,7 @@ export const AuthScreen: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${preAuthToken}`,
         },
-        body: JSON.stringify({ token: totpCode }),
+        body: JSON.stringify({ code: totpCode.trim(), token: totpCode.trim() }),
       });
 
       const data = await response.json();
@@ -194,23 +194,23 @@ export const AuthScreen: React.FC = () => {
         {require2fa ? (
           <form onSubmit={handleVerify2fa}>
             <div style={{ marginBottom: '1.25rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.9rem', color: '#9ca3af', margin: '0 0 1rem' }}>
-                Enter the 6-digit code from your authenticator app.
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: '0 0 1rem' }}>
+                Enter the 6-digit code from your authenticator app, or an 8-character backup recovery code.
               </p>
               <input
                 type="text"
                 required
-                maxLength={6}
-                placeholder="123456"
+                maxLength={12}
+                placeholder="123456 or Backup Code"
                 value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                style={{ width: '100%', padding: '0.75rem', textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5em', background: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff', boxSizing: 'border-box' }}
+                onChange={(e) => setTotpCode(e.target.value.toUpperCase())}
+                style={{ width: '100%', padding: '0.75rem', textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.2em', background: '#1f2937', border: '1px solid #374151', borderRadius: '8px', color: '#fff', boxSizing: 'border-box' }}
               />
             </div>
 
             <button
               type="submit"
-              disabled={isLoading || totpCode.length !== 6}
+              disabled={isLoading || totpCode.trim().length < 6}
               style={{ width: '100%', padding: '0.75rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.95rem', cursor: isLoading ? 'not-allowed' : 'pointer' }}
             >
               {isLoading ? 'Verifying...' : 'Authenticate & Unlock'}
